@@ -1,0 +1,58 @@
+# Syntax reference https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions
+# Environment reference https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners
+name: selfcheck
+
+on:
+  push:
+
+permissions:
+  contents: read
+  checks: write
+  security-events: write
+
+jobs:
+  build_sarif_github:
+    # Perform selfcheck and upload results to github using sarif format
+    # Results are shown here: https://github.com/danmar/cppcheck/security/code-scanning
+
+    strategy:
+      fail-fast: false # Prefer quick result
+
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: ls
+        run: |
+          ls
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: 'danmar/cppcheck'
+          path: 'cppcheck'
+
+      - name: Build Cppcheck
+        run: |
+          cd cppcheck
+          make -j$(nproc)
+
+      - name: Run Cppcheck
+        run: |
+          cppcheck/cppcheck --enable=style main.cpp --output-format=sarif 2> results.sarif
+
+      - name: Results
+        run: |
+          cat results.sarif
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: results.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
